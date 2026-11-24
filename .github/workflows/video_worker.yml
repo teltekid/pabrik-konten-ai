@@ -47,5 +47,5 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
-          TARGET_JOB_ID: ${{ github.event.client_payload.job_id || inputs.job_id }}
+          TARGET_JOB_ID: ${{ github.event.client_payload.job_id || github.event.inputs.job_id }}
         run: python worker/src/main.py
