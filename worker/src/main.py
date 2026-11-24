@@ -290,8 +290,11 @@ def upload_gdrive(out_path: Path) -> str:
 
     meta = {"name": out_path.name}
     folder_id = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
+    log(f"gdrive folder_id_len={len(folder_id)} sa={info.get('client_email')}")
     if folder_id:
         meta["parents"] = [folder_id]
+    else:
+        log("PERINGATAN: GDRIVE_FOLDER_ID kosong -> upload ke drive SA (tanpa kuota)")
 
     log("uploading ke Google Drive...")
     media = MediaFileUpload(str(out_path), mimetype="video/mp4", resumable=True)
