@@ -14,6 +14,8 @@ from supabase import create_client
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
@@ -23,11 +25,32 @@ TARGET_JOB_ID = os.environ.get("TARGET_JOB_ID", "").strip()
 WIDTH, HEIGHT = 1080, 1920
 FPS = 30
 
-FALLBACK_MODELS = [
-    "google/gemma-4-31b-it:free",
-    "baidu/ernie-5.5-flash-preview:free",
-    "inclusionai/ling-3.2-flash:free",
-    "nvidia/nemotron-3.5-lightning:free",
+# Rantai provider (semua via SDK OpenAI, base_url berbeda).
+# Urutan: Gemini (primary) -> Groq (fallback) -> OpenRouter (fallback).
+PROVIDERS = [
+    {
+        "name": "gemini",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "api_key": GEMINI_API_KEY,
+        "models": ["gemini-2.5-flash", "gemini-2.0-flash"],
+    },
+    {
+        "name": "groq",
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key": GROQ_API_KEY,
+        "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+    },
+    {
+        "name": "openrouter",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key": OPENROUTER_API_KEY,
+        "models": [
+            "google/gemma-4-31b-it:free",
+            "baidu/ernie-5.5-flash-preview:free",
+            "inclusionai/ling-3.2-flash:free",
+            "nvidia/nemotron-3.5-lightning:free",
+        ],
+    },
 ]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -70,7 +93,6 @@ def claim_job(job_id: str) -> bool:
 
 
 def generate_script(topic: str, language: str) -> dict:
-    client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
     prompt = (
         "Buat naskah video pendek vertikal (9:16) berdasarkan topik berikut. "
         "Jawab HANYA JSON valid dengan struktur: "
@@ -78,24 +100,29 @@ def generate_script(topic: str, language: str) -> dict:
         f"Minimal 4 scene, maksimal 8. Bahasa: {language}. Topik: {topic}"
     )
     last_err = None
-    for model in FALLBACK_MODELS:
-        try:
-            log(f"generate script with {model}")
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.8,
-            )
-            content = resp.choices[0].message.content.strip()
-            content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-            data = json.loads(content)
-            if not data.get("scenes"):
-                raise ValueError("scenes kosong")
-            return data
-        except Exception as e:  # noqa: BLE001
-            last_err = e
-            log(f"model {model} gagal: {e}")
-    raise RuntimeError(f"Semua model gagal: {last_err}")
+    for provider in PROVIDERS:
+        if not provider["api_key"]:
+            log(f"provider {provider['name']} dilewati (api_key kosong)")
+            continue
+        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"])
+        for model in provider["models"]:
+            try:
+                log(f"generate script with {provider['name']}/{model}")
+                resp = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.8,
+                )
+                content = resp.choices[0].message.content.strip()
+                content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                data = json.loads(content)
+                if not data.get("scenes"):
+                    raise ValueError("scenes kosong")
+                return data
+            except Exception as e:  # noqa: BLE001
+                last_err = e
+                log(f"model {provider['name']}/{model} gagal: {e}")
+    raise RuntimeError(f"Semua provider/model gagal: {last_err}")
 
 
 async def _tts_scene(text: str, path: Path, voice: str) -> None:
