@@ -283,11 +283,26 @@ def upload_gdrive(out_path: Path) -> str:
         info, scopes=["https://www.googleapis.com/auth/drive"]
     )
     service = build("drive", "v3", credentials=creds)
+
     meta = {"name": out_path.name}
+    folder_id = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
+    if folder_id:
+        meta["parents"] = [folder_id]
+
     media = MediaFileUpload(str(out_path), mimetype="video/mp4", resumable=True)
-    service.files().create(body=meta, media_body=media, fields="id").execute()
-    log("uploaded ke Google Drive")
-    return "gdrive"
+    file = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
+
+    # Jadikan bisa dibuka siapa pun yang punya link
+    try:
+        service.permissions().create(
+            fileId=file["id"], body={"type": "anyone", "role": "reader"}
+        ).execute()
+    except Exception as e:  # noqa: BLE001
+        log(f"set permission gagal (non-fatal): {e}")
+
+    link = file.get("webViewLink") or "gdrive"
+    log(f"uploaded ke Google Drive: {link}")
+    return link
 
 
 def main() -> int:
