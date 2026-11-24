@@ -42,18 +42,17 @@ def update_job(job_id: str, **fields) -> None:
 
 def fetch_job():
     if TARGET_JOB_ID:
-        res = supabase.table("video_jobs").select("*").eq("id", TARGET_JOB_ID).single().execute()
-        return res.data
+        res = supabase.table("video_jobs").select("*").eq("id", TARGET_JOB_ID).limit(1).execute()
+        return res.data[0] if res.data else None
     res = (
         supabase.table("video_jobs")
         .select("*")
         .eq("status", "pending")
-        .order("created_at", {"ascending": True})
+        .order("created_at", desc=False)
         .limit(1)
-        .single()
         .execute()
     )
-    return res.data
+    return res.data[0] if res.data else None
 
 
 def claim_job(job_id: str) -> bool:
