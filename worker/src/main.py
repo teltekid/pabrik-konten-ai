@@ -105,6 +105,7 @@ def generate_script(topic: str, language: str) -> dict:
             log(f"provider {provider['name']} dilewati (api_key kosong)")
             continue
         client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"])
+        log(f"provider {provider['name']} key_len={len(provider['api_key'])}")
         for model in provider["models"]:
             try:
                 log(f"generate script with {provider['name']}/{model}")
@@ -121,7 +122,14 @@ def generate_script(topic: str, language: str) -> dict:
                 return data
             except Exception as e:  # noqa: BLE001
                 last_err = e
-                log(f"model {provider['name']}/{model} gagal: {e}")
+                body = ""
+                resp_obj = getattr(e, "response", None)
+                if resp_obj is not None:
+                    try:
+                        body = resp_obj.text
+                    except Exception:  # noqa: BLE001
+                        body = ""
+                log(f"model {provider['name']}/{model} gagal: {e} | body={body[:300]}")
     raise RuntimeError(f"Semua provider/model gagal: {last_err}")
 
 
