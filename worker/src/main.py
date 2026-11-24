@@ -19,6 +19,9 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
+GDRIVE_CLIENT_ID = os.environ.get("GDRIVE_CLIENT_ID", "")
+GDRIVE_CLIENT_SECRET = os.environ.get("GDRIVE_CLIENT_SECRET", "")
+GDRIVE_REFRESH_TOKEN = os.environ.get("GDRIVE_REFRESH_TOKEN", "")
 
 TARGET_JOB_ID = os.environ.get("TARGET_JOB_ID", "").strip()
 
@@ -272,16 +275,35 @@ def upload_telegram(out_path: Path) -> str:
 
 
 def upload_gdrive(out_path: Path) -> str:
-    if not GDRIVE_SERVICE_ACCOUNT_JSON:
-        return ""
-    from google.oauth2 import service_account
+    from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaFileUpload
 
-    info = json.loads(GDRIVE_SERVICE_ACCOUNT_JSON)
-    creds = service_account.Credentials.from_service_account_info(
-        info, scopes=["https://www.googleapis.com/auth/drive"]
-    )
+    folder_id = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
+
+    # Prioritas: OAuth user (refresh token) -> service account
+    if GDRIVE_REFRESH_TOKEN and GDRIVE_CLIENT_ID and GDRIVE_CLIENT_SECRET:
+        creds = Credentials(
+            token=None,
+            refresh_token=GDRIVE_REFRESH_TOKEN,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GDRIVE_CLIENT_ID,
+            client_secret=GDRIVE_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/drive"],
+        )
+        log("gdrive via OAuth user")
+    elif GDRIVE_SERVICE_ACCOUNT_JSON:
+        from google.oauth2 import service_account
+
+        info = json.loads(GDRIVE_SERVICE_ACCOUNT_JSON)
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/drive"]
+        )
+        log("gdrive via service account")
+    else:
+        log("gdrive tidak dikonfigurasi (butuh OAuth atau service account)")
+        return ""
+
     service = build("drive", "v3", credentials=creds)
     try:
         service._http.timeout = 120
@@ -289,18 +311,14 @@ def upload_gdrive(out_path: Path) -> str:
         pass
 
     meta = {"name": out_path.name}
-    folder_id = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
-    log(f"gdrive folder_id_len={len(folder_id)} sa={info.get('client_email')}")
+    log(f"gdrive folder_id_len={len(folder_id)}")
     if folder_id:
         meta["parents"] = [folder_id]
-    else:
-        log("PERINGATAN: GDRIVE_FOLDER_ID kosong -> upload ke drive SA (tanpa kuota)")
 
     log("uploading ke Google Drive...")
     media = MediaFileUpload(str(out_path), mimetype="video/mp4", resumable=True)
     file = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
 
-    # Jadikan bisa dibuka siapa pun yang punya link
     try:
         service.permissions().create(
             fileId=file["id"], body={"type": "anyone", "role": "reader"}
