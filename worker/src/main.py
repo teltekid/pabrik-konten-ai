@@ -24,9 +24,10 @@ WIDTH, HEIGHT = 1080, 1920
 FPS = 30
 
 FALLBACK_MODELS = [
-    "google/gemma-2-9b-it:free",
-    "meta-llama/llama-3.3-70b-instruct:free",
-    "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    "google/gemma-4-31b-it:free",
+    "baidu/ernie-5.5-flash-preview:free",
+    "inclusionai/ling-3.2-flash:free",
+    "nvidia/nemotron-3.5-lightning:free",
 ]
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
