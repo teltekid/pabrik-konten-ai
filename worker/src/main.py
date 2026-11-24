@@ -104,7 +104,7 @@ def generate_script(topic: str, language: str) -> dict:
         if not provider["api_key"]:
             log(f"provider {provider['name']} dilewati (api_key kosong)")
             continue
-        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"])
+        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"], timeout=120)
         log(f"provider {provider['name']} key_len={len(provider['api_key'])}")
         for model in provider["models"]:
             try:
@@ -283,12 +283,17 @@ def upload_gdrive(out_path: Path) -> str:
         info, scopes=["https://www.googleapis.com/auth/drive"]
     )
     service = build("drive", "v3", credentials=creds)
+    try:
+        service._http.timeout = 120
+    except Exception:  # noqa: BLE001
+        pass
 
     meta = {"name": out_path.name}
     folder_id = os.environ.get("GDRIVE_FOLDER_ID", "").strip()
     if folder_id:
         meta["parents"] = [folder_id]
 
+    log("uploading ke Google Drive...")
     media = MediaFileUpload(str(out_path), mimetype="video/mp4", resumable=True)
     file = service.files().create(body=meta, media_body=media, fields="id,webViewLink").execute()
 
