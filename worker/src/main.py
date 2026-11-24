@@ -32,13 +32,13 @@ PROVIDERS = [
         "name": "gemini",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
         "api_key": GEMINI_API_KEY,
-        "models": ["gemini-2.5-flash", "gemini-2.0-flash"],
+        "models": ["gemini-flash-latest", "gemini-flash-lite-latest"],
     },
     {
         "name": "groq",
         "base_url": "https://api.groq.com/openai/v1",
         "api_key": GROQ_API_KEY,
-        "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"],
+        "models": ["openai/gpt-oss-20b"],
     },
     {
         "name": "openrouter",
