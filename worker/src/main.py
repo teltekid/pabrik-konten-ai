@@ -152,13 +152,51 @@ def generate_tts(scenes: list, voice: str, workdir: Path) -> list:
     return paths
 
 
+def make_placeholder(prompt: str, path: Path) -> None:
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (WIDTH, HEIGHT), (20, 30, 60))
+    draw = ImageDraw.Draw(img)
+    for y in range(HEIGHT):
+        t = y / HEIGHT
+        draw.line([(0, y), (WIDTH, y)], fill=(int(20 + 40 * t), int(30 + 50 * t), int(60 + 90 * t)))
+
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 56)
+    except Exception:  # noqa: BLE001
+        font = ImageFont.load_default()
+
+    words = prompt.split()
+    lines, cur = [], ""
+    for w in words:
+        test = (cur + " " + w).strip()
+        if draw.textlength(test, font=font) > WIDTH - 160:
+            lines.append(cur)
+            cur = w
+        else:
+            cur = test
+    if cur:
+        lines.append(cur)
+
+    text = "\n".join(lines[:12])
+    bbox = draw.multiline_textbbox((0, 0), text, font=font, spacing=16)
+    h = bbox[3] - bbox[1]
+    draw.multiline_text(((WIDTH - (bbox[2] - bbox[0])) / 2, (HEIGHT - h) / 2), text, fill=(255, 255, 255), font=font, spacing=16)
+    img.save(path)
+    log(f"placeholder -> {path.name}")
+
+
 def download_image(prompt: str, path: Path) -> None:
     encoded = urllib.parse.quote(prompt)
     url = f"https://image.pollinations.ai/prompt/{encoded}?width={WIDTH}&height={HEIGHT}&nologo=true"
-    r = requests.get(url, timeout=120)
-    r.raise_for_status()
-    path.write_bytes(r.content)
-    log(f"image -> {path.name}")
+    try:
+        r = requests.get(url, timeout=120)
+        r.raise_for_status()
+        path.write_bytes(r.content)
+        log(f"image -> {path.name}")
+    except Exception as e:  # noqa: BLE001
+        log(f"pollinations gagal ({e}); pakai placeholder lokal")
+        make_placeholder(prompt, path)
 
 
 def run(cmd: list) -> None:
