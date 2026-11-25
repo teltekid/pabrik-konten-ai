@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { authClient } from './lib/auth'
 
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -18,7 +19,7 @@ const DESTINATIONS = [
   { key: 'youtube', label: 'YouTube (stub)' },
 ]
 
-export default function App() {
+function Dashboard() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   const [topic, setTopic] = useState('')
@@ -168,4 +169,117 @@ function statusColor(s: JobStatus): string {
     case 'completed': return '#4caf50'
     case 'failed': return '#f44336'
   }
+}
+
+function AuthForm() {
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [twoFactor, setTwoFactor] = useState(false)
+  const [code, setCode] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      if (mode === 'signup') {
+        const res = await authClient.signUp.email({ email, password, name })
+        if (res.error) throw res.error
+      } else {
+        const res = await authClient.signIn.email({ email, password })
+        if (res.error) throw res.error
+        if ((res.data as any)?.twoFactorRedirect) {
+          setTwoFactor(true)
+          return
+        }
+      }
+    } catch (e: any) {
+      setError(e?.message || 'Gagal')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function verify(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await authClient.twoFactor.verifyTotp({ code })
+      if (res.error) throw res.error
+    } catch (e: any) {
+      setError(e?.message || 'Kode TOTP salah')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (twoFactor) {
+    return (
+      <div style={card}>
+        <h2>Verifikasi 2FA</h2>
+        <form onSubmit={verify} style={{ display: 'grid', gap: 12 }}>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP (6 digit)" style={input} />
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <button disabled={busy} style={btn}>{busy ? 'Memverifikasi...' : 'Verifikasi'}</button>
+        </form>
+      </div>
+    )
+  }
+
+  return (
+    <div style={card}>
+      <h2>{mode === 'signin' ? 'Masuk' : 'Daftar'}</h2>
+      <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+        {mode === 'signup' && (
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" style={input} required />
+        )}
+        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={input} required />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        <button disabled={busy} style={btn}>{busy ? 'Memproses...' : mode === 'signin' ? 'Masuk' : 'Daftar'}</button>
+      </form>
+      <p style={{ fontSize: 13, marginTop: 12 }}>
+        {mode === 'signin' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
+        <a href="#" onClick={(e) => { e.preventDefault(); setMode(mode === 'signin' ? 'signup' : 'signin') }}>
+          {mode === 'signin' ? 'Daftar' : 'Masuk'}
+        </a>
+      </p>
+    </div>
+  )
+}
+
+const card: React.CSSProperties = { maxWidth: 360, margin: '80px auto', fontFamily: 'system-ui', padding: 24, border: '1px solid #eee', borderRadius: 12 }
+const input: React.CSSProperties = { padding: 8, width: '100%' }
+const btn: React.CSSProperties = { padding: '10px 20px', cursor: 'pointer' }
+
+export default function App() {
+  const { data: session, isPending } = authClient.useSession()
+
+  if (isPending) {
+    return <div style={{ textAlign: 'center', marginTop: 80, fontFamily: 'system-ui' }}>Memuat...</div>
+  }
+
+  if (!session) {
+    return (
+      <div>
+        <h1 style={{ textAlign: 'center', fontFamily: 'system-ui' }}>🏭 PABRIK KONTEN AI</h1>
+        <AuthForm />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ textAlign: 'right', padding: 8, fontFamily: 'system-ui' }}>
+        {session.user.email} ·{' '}
+        <a href="#" onClick={(e) => { e.preventDefault(); authClient.signOut() }}>Keluar</a>
+      </div>
+      <Dashboard />
+    </div>
+  )
 }
