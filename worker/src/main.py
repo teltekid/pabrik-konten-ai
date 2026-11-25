@@ -241,7 +241,6 @@ def download_image(prompt: str, path: Path) -> None:
     url = f"https://image.pollinations.ai/prompt/{encoded}?width={WIDTH}&height={HEIGHT}&nologo=true"
     headers = {}
     if POLLINATIONS_API_KEY:
-        url += f"&token={POLLINATIONS_API_KEY}"
         headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
     try:
         r = requests.get(url, headers=headers, timeout=30)
