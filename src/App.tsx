@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import QRCode from 'qrcode'
 import { supabase } from './lib/supabase'
 import { authClient } from './lib/auth'
+import { Card } from './components/ui/card'
+import { Input } from './components/ui/input'
+import { Button } from './components/ui/button'
 
 type JobStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
@@ -181,7 +184,6 @@ function AuthForm() {
   const [twoFactor, setTwoFactor] = useState(() => sessionStorage.getItem('awaiting2fa') === '1')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
-  const [raw, setRaw] = useState('')
 
   function begin2fa() {
     sessionStorage.setItem('awaiting2fa', '1')
@@ -192,15 +194,12 @@ function AuthForm() {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    setRaw('')
     try {
       if (mode === 'signup') {
         const res = await authClient.signUp.email({ email, password, name })
-        setRaw(JSON.stringify(res))
         if (res.error) throw res.error
       } else {
         const res = await authClient.signIn.email({ email, password })
-        setRaw(JSON.stringify(res))
         if (res.error) {
           const needs2fa = /two.?factor|2fa|totp/i.test(String(res.error.message || ''))
           if (!needs2fa) throw res.error
@@ -239,44 +238,87 @@ function AuthForm() {
 
   if (twoFactor) {
     return (
-      <div style={card}>
-        <h2>Verifikasi 2FA</h2>
-        <form onSubmit={verify} style={{ display: 'grid', gap: 12 }}>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP (6 digit)" style={input} />
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button disabled={busy} style={btn}>{busy ? 'Memverifikasi...' : 'Verifikasi'}</button>
-          {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 320 }}>{raw}</pre>}
-        </form>
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-sm p-6">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 font-serif text-lg font-semibold text-accent">
+            PA
+          </div>
+          <h2 className="font-serif text-xl font-semibold">Verifikasi 2FA</h2>
+          <p className="mb-4 mt-1 text-sm text-muted-foreground">Masukkan kode dari aplikasi authenticator.</p>
+          <form onSubmit={verify} className="grid gap-3">
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Kode TOTP (6 digit)"
+              className="tabular text-center tracking-widest"
+              required
+            />
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <Button disabled={busy} className="w-full">
+              {busy ? 'Memverifikasi...' : 'Verifikasi'}
+            </Button>
+          </form>
+        </Card>
       </div>
     )
   }
 
   return (
-    <div style={card}>
-      <h2>{mode === 'signin' ? 'Masuk' : 'Daftar'}</h2>
-      <form onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
-        {mode === 'signup' && (
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" style={input} required />
-        )}
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={input} required />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button disabled={busy} style={btn}>{busy ? 'Memproses...' : mode === 'signin' ? 'Masuk' : 'Daftar'}</button>
-        {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 320 }}>{raw}</pre>}
-      </form>
-      <p style={{ fontSize: 13, marginTop: 12 }}>
-        {mode === 'signin' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
-        <a href="#" onClick={(e) => { e.preventDefault(); setMode(mode === 'signin' ? 'signup' : 'signin') }}>
-          {mode === 'signin' ? 'Daftar' : 'Masuk'}
-        </a>
-      </p>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-sm p-6">
+        <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 font-serif text-lg font-semibold text-accent">
+          PA
+        </div>
+        <h2 className="font-serif text-xl font-semibold">
+          {mode === 'signin' ? 'Selamat datang' : 'Buat akun'}
+        </h2>
+        <p className="mb-4 mt-1 text-sm text-muted-foreground">
+          {mode === 'signin' ? 'Masuk untuk melanjutkan.' : 'Daftar untuk mulai.'}
+        </p>
+
+        <div className="mb-4 grid grid-cols-2 gap-1 rounded-md bg-muted p-1">
+          {(['signin', 'signup'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={
+                'rounded-sm px-3 py-1.5 text-sm transition-colors ' +
+                (mode === m ? 'bg-surface text-foreground shadow-soft' : 'text-muted-foreground')
+              }
+            >
+              {m === 'signin' ? 'Masuk' : 'Daftar'}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={submit} className="grid gap-3">
+          {mode === 'signup' && (
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nama" required />
+          )}
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email"
+            required
+          />
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            required
+          />
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button disabled={busy} className="w-full">
+            {busy ? 'Memproses...' : mode === 'signin' ? 'Masuk' : 'Daftar'}
+          </Button>
+        </form>
+      </Card>
     </div>
   )
 }
-
-const card: React.CSSProperties = { maxWidth: 360, margin: '80px auto', fontFamily: 'system-ui', padding: 24, border: '1px solid #eee', borderRadius: 12 }
-const input: React.CSSProperties = { padding: 8, width: '100%' }
-const btn: React.CSSProperties = { padding: '10px 20px', cursor: 'pointer' }
 
 function TwoFactorSetup() {
   const [open, setOpen] = useState(false)
@@ -286,14 +328,12 @@ function TwoFactorSetup() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [raw, setRaw] = useState('')
 
   async function enable(e: React.FormEvent) {
     e.preventDefault()
-    setBusy(true); setError(null); setRaw('')
+    setBusy(true); setError(null)
     try {
       const res = await authClient.twoFactor.enable({ password })
-      setRaw(JSON.stringify(res))
       if (res.error) throw res.error
       const data = res.data as any
       const uri = data?.totpURI || data?.qrCode || null
@@ -320,29 +360,38 @@ function TwoFactorSetup() {
   }
 
   if (!open) {
-    return <button style={{ ...btn, marginBottom: 8 }} onClick={() => setOpen(true)}>Aktifkan 2FA/TOTP</button>
+    return (
+      <div className="mx-auto mb-2 max-w-sm">
+        <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
+          Aktifkan 2FA/TOTP
+        </Button>
+      </div>
+    )
   }
 
   return (
-    <div style={{ ...card, maxWidth: 420, margin: '16px auto' }}>
-      <h3>Aktifkan 2FA</h3>
+    <Card className="mx-auto mb-2 max-w-sm p-4">
+      <h3 className="mb-3 font-serif text-base font-semibold">Aktifkan 2FA</h3>
       {!secret ? (
-        <form onSubmit={enable} style={{ display: 'grid', gap: 10 }}>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button disabled={busy} style={btn}>{busy ? '...' : 'Buat secret'}</button>
-          {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 360 }}>{raw}</pre>}
+        <form onSubmit={enable} className="grid gap-2">
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required />
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button disabled={busy} className="w-full">
+            {busy ? '...' : 'Buat secret'}
+          </Button>
         </form>
       ) : (
-        <form onSubmit={verify} style={{ display: 'grid', gap: 10 }}>
-          {qr && <img src={qr} alt="QR" style={{ width: 160 }} />}
-          <code style={{ fontSize: 12 }}>{secret}</code>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP" style={input} required />
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button disabled={busy} style={btn}>{busy ? '...' : 'Verifikasi & Aktifkan'}</button>
+        <form onSubmit={verify} className="grid gap-2">
+          {qr && <img src={qr} alt="QR" className="mx-auto h-40 w-40" />}
+          <code className="tabular break-all text-xs text-muted-foreground">{secret}</code>
+          <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP" className="tabular" required />
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button disabled={busy} className="w-full">
+            {busy ? '...' : 'Verifikasi & Aktifkan'}
+          </Button>
         </form>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -360,12 +409,7 @@ export default function App() {
   }
 
   if (!session) {
-    return (
-      <div>
-        <h1 style={{ textAlign: 'center', fontFamily: 'system-ui' }}>🏭 PABRIK KONTEN AI</h1>
-        <AuthForm />
-      </div>
-    )
+    return <AuthForm />
   }
 
   return (
