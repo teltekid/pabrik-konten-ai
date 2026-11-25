@@ -16,6 +16,8 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
@@ -42,6 +44,19 @@ PROVIDERS = [
         "base_url": "https://api.groq.com/openai/v1",
         "api_key": GROQ_API_KEY,
         "models": ["openai/gpt-oss-20b"],
+    },
+    {
+        "name": "cloudflare",
+        "base_url": (
+            f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1"
+            if CLOUDFLARE_ACCOUNT_ID
+            else ""
+        ),
+        "api_key": CLOUDFLARE_API_TOKEN,
+        "models": [
+            "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+            "@cf/meta/llama-3.1-8b-instruct",
+        ],
     },
     {
         "name": "openrouter",
@@ -104,8 +119,8 @@ def generate_script(topic: str, language: str) -> dict:
     )
     last_err = None
     for provider in PROVIDERS:
-        if not provider["api_key"]:
-            log(f"provider {provider['name']} dilewati (api_key kosong)")
+        if not provider["api_key"] or not provider["base_url"]:
+            log(f"provider {provider['name']} dilewati (api_key/base_url kosong)")
             continue
         client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"], timeout=120)
         log(f"provider {provider['name']} key_len={len(provider['api_key'])}")

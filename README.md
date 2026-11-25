@@ -50,6 +50,7 @@ GitHub Actions (Repo -> Settings -> Secrets):
 - `OPENROUTER_API_KEY`
 - `GEMINI_API_KEY` (Google AI Studio, primary)
 - `GROQ_API_KEY` (GroqCloud, fallback)
+- `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (Cloudflare Workers AI, fallback)
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - `GDRIVE_SERVICE_ACCOUNT_JSON` (service account JSON)
 
