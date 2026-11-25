@@ -215,6 +215,8 @@ def make_placeholder(prompt: str, path: Path) -> None:
 
 
 def _cloudflare_image(prompt: str, path: Path) -> bool:
+    if os.environ.get("CLOUDFLARE_IMAGE_ENABLED", "").lower() not in ("1", "true", "yes"):
+        return False
     if not (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN):
         return False
     url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell"
