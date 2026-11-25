@@ -119,11 +119,12 @@ def send_telegram(text: str) -> None:
     if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
         print(text)
         return
-    requests.post(
+    r = requests.post(
         f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
         json={"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"},
         timeout=20,
     )
+    print(f"telegram send status={r.status_code} body={r.text[:120]}")
 
 
 def main() -> int:
