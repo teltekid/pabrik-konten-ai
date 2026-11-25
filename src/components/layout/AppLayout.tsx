@@ -1,6 +1,7 @@
 import { Menu, Search, Bell } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { authClient } from '../../lib/auth'
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarItem, useSidebar } from '../ui/sidebar'
 import {
   DropdownMenu,
@@ -55,7 +56,14 @@ function Topbar({ title }: { title: string }) {
         <DropdownMenuContent align="end">
           <DropdownMenuItem>Profil</DropdownMenuItem>
           <DropdownMenuItem>Pengaturan</DropdownMenuItem>
-          <DropdownMenuItem>Keluar</DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={async () => {
+              await authClient.signOut()
+              window.location.href = '/'
+            }}
+          >
+            Keluar
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
