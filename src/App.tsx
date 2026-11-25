@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import { supabase } from './lib/supabase'
 import { authClient } from './lib/auth'
 
@@ -258,6 +259,7 @@ const input: React.CSSProperties = { padding: 8, width: '100%' }
 const btn: React.CSSProperties = { padding: '10px 20px', cursor: 'pointer' }
 
 function TwoFactorSetup() {
+  const { data: session } = authClient.useSession()
   const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [secret, setSecret] = useState<string | null>(null)
@@ -272,8 +274,16 @@ function TwoFactorSetup() {
     try {
       const res = await authClient.twoFactor.enable({ password })
       if (res.error) throw res.error
-      setSecret((res.data as any)?.secret || null)
-      setQr((res.data as any)?.qrCode || null)
+      const sec = (res.data as any)?.secret || null
+      setSecret(sec)
+      const email = session?.user?.email || 'user'
+      if (sec) {
+        const otpauth = `otpauth://totp/PabrikKontenAI:${email}?secret=${sec}&issuer=PabrikKontenAI`
+        const dataUrl = await QRCode.toDataURL(otpauth)
+        setQr(dataUrl)
+      } else {
+        setQr((res.data as any)?.qrCode || null)
+      }
     } catch (e: any) { setError(e?.message || 'Gagal enable') }
     finally { setBusy(false) }
   }
