@@ -267,12 +267,14 @@ function TwoFactorSetup() {
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [raw, setRaw] = useState('')
 
   async function enable(e: React.FormEvent) {
     e.preventDefault()
-    setBusy(true); setError(null)
+    setBusy(true); setError(null); setRaw('')
     try {
       const res = await authClient.twoFactor.enable({ password })
+      setRaw(JSON.stringify(res))
       if (res.error) throw res.error
       const sec = (res.data as any)?.secret || null
       setSecret(sec)
@@ -311,6 +313,7 @@ function TwoFactorSetup() {
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
           {error && <p style={{ color: 'red' }}>{error}</p>}
           <button disabled={busy} style={btn}>{busy ? '...' : 'Buat secret'}</button>
+          {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 360 }}>{raw}</pre>}
         </form>
       ) : (
         <form onSubmit={verify} style={{ display: 'grid', gap: 10 }}>
