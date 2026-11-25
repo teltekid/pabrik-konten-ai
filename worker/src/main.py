@@ -218,13 +218,13 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
     if not (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN):
         return False
     url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell"
-    w = ((WIDTH + 63) // 64) * 64
-    h = ((HEIGHT + 63) // 64) * 64
+    # 9:16, kelipatan 64, dalam batas 1024
+    w, h = 576, 1024
     try:
         r = requests.post(
             url,
             headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
-            json={"prompt": prompt, "width": w, "height": h},
+            json={"prompt": prompt, "width": w, "height": h, "steps": 4},
             timeout=60,
         )
         r.raise_for_status()
@@ -237,23 +237,9 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
 
 
 def download_image(prompt: str, path: Path) -> None:
-    encoded = urllib.parse.quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded}?width={WIDTH}&height={HEIGHT}&nologo=true"
-    headers = {}
-    if POLLINATIONS_API_KEY:
-        headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
-    try:
-        r = requests.get(url, headers=headers, timeout=30)
-        r.raise_for_status()
-        path.write_bytes(r.content)
-        log(f"image (pollinations) -> {path.name}")
-        return
-    except Exception as e:  # noqa: BLE001
-        log(f"pollinations gagal ({e})")
-
+    # Pollinations di-skip (butuh berbayar). Cloudflare Flux -> placeholder lokal.
     if _cloudflare_image(prompt, path):
         return
-
     make_placeholder(prompt, path)
 
 
