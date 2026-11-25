@@ -223,7 +223,7 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
             url,
             headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
             json={"prompt": prompt},
-            timeout=60,
+            timeout=30,
         )
         r.raise_for_status()
         path.write_bytes(r.content)
