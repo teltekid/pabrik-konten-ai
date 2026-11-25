@@ -217,11 +217,13 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
     if not (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN):
         return False
     url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell"
+    w = ((WIDTH + 63) // 64) * 64
+    h = ((HEIGHT + 63) // 64) * 64
     try:
         r = requests.post(
             url,
             headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
-            json={"prompt": prompt, "width": WIDTH, "height": HEIGHT},
+            json={"prompt": prompt, "width": w, "height": h},
             timeout=60,
         )
         r.raise_for_status()
