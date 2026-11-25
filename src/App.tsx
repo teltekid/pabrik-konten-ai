@@ -181,19 +181,26 @@ function AuthForm() {
   const [twoFactor, setTwoFactor] = useState(false)
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [raw, setRaw] = useState('')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setBusy(true)
     setError(null)
+    setRaw('')
     try {
       if (mode === 'signup') {
         const res = await authClient.signUp.email({ email, password, name })
+        setRaw(JSON.stringify(res))
         if (res.error) throw res.error
       } else {
         const res = await authClient.signIn.email({ email, password })
-        if (res.error) throw res.error
-        if ((res.data as any)?.twoFactorRedirect) {
+        setRaw(JSON.stringify(res))
+        const needs2fa =
+          (res.data as any)?.twoFactorRedirect === true ||
+          /two.?factor|2fa|totp/i.test(String(res.error?.message || ''))
+        if (res.error && !needs2fa) throw res.error
+        if (needs2fa) {
           setTwoFactor(true)
           return
         }
@@ -243,6 +250,7 @@ function AuthForm() {
         <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
         {error && <p style={{ color: 'red' }}>{error}</p>}
         <button disabled={busy} style={btn}>{busy ? 'Memproses...' : mode === 'signin' ? 'Masuk' : 'Daftar'}</button>
+        {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 320 }}>{raw}</pre>}
       </form>
       <p style={{ fontSize: 13, marginTop: 12 }}>
         {mode === 'signin' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
