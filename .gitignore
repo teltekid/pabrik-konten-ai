@@ -8,6 +8,7 @@ vite.config.d.ts
 .env.*.local
 *.log
 .DS_Store
+*.md
 __pycache__/
 *.pyc
 .kilo/agent-manager.json
