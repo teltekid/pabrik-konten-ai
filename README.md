@@ -52,6 +52,7 @@ GitHub Actions (Repo -> Settings -> Secrets):
 - `GROQ_API_KEY` (GroqCloud, fallback)
 - `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN` (Cloudflare Workers AI, fallback)
 - `SAMBANOVA_API_KEY` (SambaNova.ai, fallback)
+- `POLLINATIONS_API_KEY` (Pollinations.ai, image primary)
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 - `GDRIVE_SERVICE_ACCOUNT_JSON` (service account JSON)
 

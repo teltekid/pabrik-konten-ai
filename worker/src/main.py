@@ -19,6 +19,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
 CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
 SAMBANOVA_API_KEY = os.environ.get("SAMBANOVA_API_KEY", "")
+POLLINATIONS_API_KEY = os.environ.get("POLLINATIONS_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
@@ -238,11 +239,15 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
 def download_image(prompt: str, path: Path) -> None:
     encoded = urllib.parse.quote(prompt)
     url = f"https://image.pollinations.ai/prompt/{encoded}?width={WIDTH}&height={HEIGHT}&nologo=true"
+    headers = {}
+    if POLLINATIONS_API_KEY:
+        url += f"&token={POLLINATIONS_API_KEY}"
+        headers["Authorization"] = f"Bearer {POLLINATIONS_API_KEY}"
     try:
-        r = requests.get(url, timeout=20)
+        r = requests.get(url, headers=headers, timeout=30)
         r.raise_for_status()
         path.write_bytes(r.content)
-        log(f"image -> {path.name}")
+        log(f"image (pollinations) -> {path.name}")
         return
     except Exception as e:  # noqa: BLE001
         log(f"pollinations gagal ({e})")

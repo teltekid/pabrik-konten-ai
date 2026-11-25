@@ -31,10 +31,10 @@ Semua via SDK OpenAI (base_url berbeda), timeout 45s, max_retries=0 (non-blockin
 Catatan: untuk MVP, reasoning tidak dipakai; naskah cukup model flash.
 
 ### Generate Gambar (Image)
-- **Cloudflare Workers AI** `@cf/black-forest-labs/flux-1-schnell` (free, cepat) — dipakai sebagai fallback gambar.
-- Pollinations.ai — saat ini **402 Payment Required** (tidak dipakai lagi).
+- **Pollinations.ai** (dengan API key) — primary, kualitas prompt-to-image baik.
+- **Cloudflare Workers AI** `@cf/black-forest-labs/flux-1-schnell` (free) — fallback.
 - **Fallback lokal** (gradien + teks via Pillow) — selalu tersedia, 100% gratis.
-Rantai gambar: Pollinations (timeout 20s) -> Cloudflare Flux (timeout 60s) -> placeholder lokal.
+Rantai gambar: Pollinations (key, 30s) -> Cloudflare Flux (60s) -> placeholder lokal.
 
 ### Generate Audio (TTS)
 - **edge-tts** (gratis, tanpa key) — dipakai. Voice `id-ID-ArdiNeural` dst.
@@ -51,7 +51,7 @@ Rantai gambar: Pollinations (timeout 20s) -> Cloudflare Flux (timeout 60s) -> pl
 
 ## 3. Mekanisme Fallback & Retry (Non-Blocking)
 - Setiap panggilan LLM: `timeout=45s`, `max_retries=0` -> gagal cepat, lanjut provider berikutnya.
-- Gambar: timeout pendek (20s/60s) -> fallback cepat ke placeholder.
+- Gambar: timeout pendek (Pollinations 30s / Cloudflare 60s) -> fallback cepat ke placeholder.
 - TTS: `asyncio.wait_for` 60s -> gagal cepat.
 - Tidak ada retry internal yang menggantung; rantai provider membuat sistem tetap maju.
 - Setiap kegagalan dicatat di log, job tetap diproses selama satu tahap berhasil.
