@@ -197,7 +197,7 @@ function AuthForm() {
         const res = await authClient.signIn.email({ email, password })
         setRaw(JSON.stringify(res))
         const needs2fa =
-          (res.data as any)?.twoFactorRedirect === true ||
+          Boolean((res.data as any)?.twoFactorRedirect) ||
           /two.?factor|2fa|totp/i.test(String(res.error?.message || ''))
         if (res.error && !needs2fa) throw res.error
         if (needs2fa) {
@@ -234,6 +234,7 @@ function AuthForm() {
           <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP (6 digit)" style={input} />
           {error && <p style={{ color: 'red' }}>{error}</p>}
           <button disabled={busy} style={btn}>{busy ? 'Memverifikasi...' : 'Verifikasi'}</button>
+          {raw && <pre style={{ fontSize: 10, whiteSpace: 'pre-wrap', maxWidth: 320 }}>{raw}</pre>}
         </form>
       </div>
     )
