@@ -178,10 +178,15 @@ function AuthForm() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [twoFactor, setTwoFactor] = useState(false)
+  const [twoFactor, setTwoFactor] = useState(() => sessionStorage.getItem('awaiting2fa') === '1')
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [raw, setRaw] = useState('')
+
+  function begin2fa() {
+    sessionStorage.setItem('awaiting2fa', '1')
+    setTwoFactor(true)
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -199,13 +204,13 @@ function AuthForm() {
         if (res.error) {
           const needs2fa = /two.?factor|2fa|totp/i.test(String(res.error.message || ''))
           if (!needs2fa) throw res.error
-          setTwoFactor(true)
+          begin2fa()
           return
         }
         // Jika tidak ada session setelah sign-in -> butuh 2FA
         const sess = await authClient.getSession()
         if (!sess.data) {
-          setTwoFactor(true)
+          begin2fa()
           return
         }
       }
@@ -223,6 +228,8 @@ function AuthForm() {
     try {
       const res = await authClient.twoFactor.verifyTotp({ code })
       if (res.error) throw res.error
+      sessionStorage.removeItem('awaiting2fa')
+      setTwoFactor(false)
     } catch (e: any) {
       setError(e?.message || 'Kode TOTP salah')
     } finally {
