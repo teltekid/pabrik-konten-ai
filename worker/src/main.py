@@ -239,6 +239,10 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
                 body = resp_obj.text
             except Exception:  # noqa: BLE001
                 body = ""
+            log(
+                f"cloudflare image HTTP {resp_obj.status_code} "
+                f"ctype={resp_obj.headers.get('content-type')} len={len(resp_obj.content)}"
+            )
         log(f"cloudflare image gagal ({e}) body={body[:300]}")
         return False
 
