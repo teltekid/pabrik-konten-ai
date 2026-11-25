@@ -349,6 +349,12 @@ function TwoFactorSetup() {
 export default function App() {
   const { data: session, isPending } = authClient.useSession()
 
+  useEffect(() => {
+    if (session) {
+      window.location.replace('/dashboard.html')
+    }
+  }, [session])
+
   if (isPending) {
     return <div style={{ textAlign: 'center', marginTop: 80, fontFamily: 'system-ui' }}>Memuat...</div>
   }
