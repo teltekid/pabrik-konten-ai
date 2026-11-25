@@ -18,6 +18,7 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 CLOUDFLARE_ACCOUNT_ID = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
 CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+SAMBANOVA_API_KEY = os.environ.get("SAMBANOVA_API_KEY", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
@@ -31,7 +32,7 @@ WIDTH, HEIGHT = 1080, 1920
 FPS = 30
 
 # Rantai provider (semua via SDK OpenAI, base_url berbeda).
-# Urutan: Gemini (primary) -> Groq (fallback) -> OpenRouter (fallback).
+# Urutan: Gemini -> Groq -> Cloudflare -> SambaNova -> OpenRouter.
 PROVIDERS = [
     {
         "name": "gemini",
@@ -57,6 +58,12 @@ PROVIDERS = [
             "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
             "@cf/meta/llama-3.1-8b-instruct",
         ],
+    },
+    {
+        "name": "sambanova",
+        "base_url": "https://api.sambanova.ai/v1",
+        "api_key": SAMBANOVA_API_KEY,
+        "models": ["Meta-Llama-3.3-70B-Instruct", "Meta-Llama-3.1-8B-Instruct"],
     },
     {
         "name": "openrouter",
