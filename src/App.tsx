@@ -257,6 +257,64 @@ const card: React.CSSProperties = { maxWidth: 360, margin: '80px auto', fontFami
 const input: React.CSSProperties = { padding: 8, width: '100%' }
 const btn: React.CSSProperties = { padding: '10px 20px', cursor: 'pointer' }
 
+function TwoFactorSetup() {
+  const [open, setOpen] = useState(false)
+  const [password, setPassword] = useState('')
+  const [secret, setSecret] = useState<string | null>(null)
+  const [qr, setQr] = useState<string | null>(null)
+  const [code, setCode] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function enable(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      const res = await authClient.twoFactor.enable({ password })
+      if (res.error) throw res.error
+      setSecret((res.data as any)?.secret || null)
+      setQr((res.data as any)?.qrCode || null)
+    } catch (e: any) { setError(e?.message || 'Gagal enable') }
+    finally { setBusy(false) }
+  }
+
+  async function verify(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError(null)
+    try {
+      const res = await authClient.twoFactor.verifyTotp({ code })
+      if (res.error) throw res.error
+      setOpen(false); setSecret(null); setQr(null)
+    } catch (e: any) { setError(e?.message || 'Kode salah') }
+    finally { setBusy(false) }
+  }
+
+  if (!open) {
+    return <button style={{ ...btn, marginBottom: 8 }} onClick={() => setOpen(true)}>Aktifkan 2FA/TOTP</button>
+  }
+
+  return (
+    <div style={{ ...card, maxWidth: 420, margin: '16px auto' }}>
+      <h3>Aktifkan 2FA</h3>
+      {!secret ? (
+        <form onSubmit={enable} style={{ display: 'grid', gap: 10 }}>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" style={input} required />
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <button disabled={busy} style={btn}>{busy ? '...' : 'Buat secret'}</button>
+        </form>
+      ) : (
+        <form onSubmit={verify} style={{ display: 'grid', gap: 10 }}>
+          {qr && <img src={qr} alt="QR" style={{ width: 160 }} />}
+          <code style={{ fontSize: 12 }}>{secret}</code>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Kode TOTP" style={input} required />
+          {error && <p style={{ color: 'red' }}>{error}</p>}
+          <button disabled={busy} style={btn}>{busy ? '...' : 'Verifikasi & Aktifkan'}</button>
+        </form>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   const { data: session, isPending } = authClient.useSession()
 
@@ -279,6 +337,7 @@ export default function App() {
         {session.user.email} ·{' '}
         <a href="#" onClick={(e) => { e.preventDefault(); authClient.signOut() }}>Keluar</a>
       </div>
+      <TwoFactorSetup />
       <Dashboard />
     </div>
   )
