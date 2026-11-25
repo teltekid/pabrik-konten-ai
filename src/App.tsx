@@ -19,6 +19,8 @@ const DESTINATIONS = [
 ]
 
 export default function App() {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+  const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   const [topic, setTopic] = useState('')
   const [language, setLanguage] = useState('id-ID')
   const [voice, setVoice] = useState('id-ID-ArdiNeural')
@@ -31,13 +33,30 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  if (!supabaseUrl || !supabaseAnon) {
+    return (
+      <div style={{ maxWidth: 720, margin: '40px auto', fontFamily: 'system-ui', padding: '0 16px' }}>
+        <h1>🏭 PABRIK KONTEN AI</h1>
+        <p style={{ color: 'red' }}>
+          Konfigurasi Supabase belum diset. Set <code>VITE_SUPABASE_URL</code> dan{' '}
+          <code>VITE_SUPABASE_ANON_KEY</code> di Netlify (Environment variables) lalu redeploy.
+        </p>
+      </div>
+    )
+  }
+
   async function loadJobs() {
-    const { data } = await supabase
-      .from('video_jobs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20)
-    if (data) setJobs(data as VideoJob[])
+    try {
+      const { data, error: err } = await supabase
+        .from('video_jobs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (err) throw err
+      if (data) setJobs(data as VideoJob[])
+    } catch (e: any) {
+      setError(e?.message || 'Gagal memuat job')
+    }
   }
 
   useEffect(() => {
