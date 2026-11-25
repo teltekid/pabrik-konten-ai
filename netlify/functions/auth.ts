@@ -17,5 +17,13 @@ export const auth = betterAuth({
 })
 
 export default async (req: Request): Promise<Response> => {
-  return auth.handler(req)
+  try {
+    return await auth.handler(req)
+  } catch (e: any) {
+    console.error('[auth] error:', e)
+    return new Response(
+      JSON.stringify({ error: e?.message || String(e), stack: e?.stack }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    )
+  }
 }

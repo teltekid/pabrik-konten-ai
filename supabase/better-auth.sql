@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS "user" (
   email text NOT NULL UNIQUE,
   "emailVerified" boolean NOT NULL DEFAULT false,
   image text,
+  "twoFactorEnabled" boolean NOT NULL DEFAULT false,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
@@ -50,6 +51,9 @@ CREATE TABLE IF NOT EXISTS "twoFactor" (
   "userId" text NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
   secret text NOT NULL,
   "backupCodes" text NOT NULL,
+  verified boolean NOT NULL DEFAULT false,
+  "failedVerificationCount" integer NOT NULL DEFAULT 0,
+  "lockedUntil" timestamptz,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   "updatedAt" timestamptz NOT NULL DEFAULT now()
 );
