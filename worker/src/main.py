@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.parse
 from pathlib import Path
 
@@ -34,7 +35,8 @@ FPS = 30
 
 # Rantai provider (semua via SDK OpenAI, base_url berbeda).
 # Urutan: Gemini -> Groq -> Cloudflare -> SambaNova -> OpenRouter.
-PROVIDERS = [
+# Dapat di-override via env LLM_PROVIDERS_JSON (JSON array).
+_DEFAULT_PROVIDERS = [
     {
         "name": "gemini",
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
@@ -79,6 +81,22 @@ PROVIDERS = [
     },
 ]
 
+_PROVIDERS_RAW = os.environ.get("LLM_PROVIDERS_JSON", "").strip()
+if _PROVIDERS_RAW:
+    try:
+        PROVIDERS = json.loads(_PROVIDERS_RAW)
+        # inject api_key dari env bila kosong
+        for p in PROVIDERS:
+            if not p.get("api_key"):
+                p["api_key"] = os.environ.get(
+                    p.get("api_key_env", ""), ""
+                )
+    except json.JSONDecodeError:
+        log("LLM_PROVIDERS_JSON invalid, fallback ke default")
+        PROVIDERS = _DEFAULT_PROVIDERS
+else:
+    PROVIDERS = _DEFAULT_PROVIDERS
+
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 
@@ -118,6 +136,47 @@ def claim_job(job_id: str) -> bool:
     return bool(res.data)
 
 
+def _retry_after(err) -> float | None:
+    resp = getattr(err, "response", None)
+    if resp is not None:
+        try:
+            v = resp.headers.get("retry-after")
+            if v:
+                return min(float(v), 5.0)
+        except (ValueError, TypeError):
+            pass
+    return None
+
+
+def _is_daily_limit(err, body: str) -> bool:
+    resp = getattr(err, "response", None)
+    if resp is not None:
+        try:
+            rem = resp.headers.get("x-ratelimit-remaining")
+            if rem is not None and str(rem).strip() == "0":
+                return True
+        except Exception:  # noqa: BLE001
+            pass
+    low = (body or "").lower()
+    return any(k in low for k in ("per-day", "free-models-per-day", "daily", "quota"))
+
+
+def _quality_ok(data: dict) -> bool:
+    scenes = data.get("scenes")
+    if not isinstance(scenes, list) or not (4 <= len(scenes) <= 8):
+        return False
+    for s in scenes:
+        if not isinstance(s, dict):
+            return False
+        t = s.get("text")
+        ip = s.get("image_prompt")
+        if not isinstance(t, str) or len(t.strip()) < 20:
+            return False
+        if not isinstance(ip, str) or len(ip.strip()) < 5:
+            return False
+    return True
+
+
 def generate_script(topic: str, language: str) -> dict:
     prompt = (
         "Buat naskah video pendek vertikal (9:16) berdasarkan topik berikut. "
@@ -126,36 +185,68 @@ def generate_script(topic: str, language: str) -> dict:
         f"Minimal 4 scene, maksimal 8. Bahasa: {language}. Topik: {topic}"
     )
     last_err = None
+    deadline = time.monotonic() + 90  # total budget per tugas
     for provider in PROVIDERS:
-        if not provider["api_key"] or not provider["base_url"]:
+        if time.monotonic() > deadline:
+            raise RuntimeError("deadline 90s terlampaui, fallback ke lokal")
+        if not provider.get("api_key") or not provider.get("base_url"):
             log(f"provider {provider['name']} dilewati (api_key/base_url kosong)")
             continue
-        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"], timeout=45, max_retries=0)
+        client = OpenAI(
+            base_url=provider["base_url"],
+            api_key=provider["api_key"],
+            timeout=45,
+            max_retries=0,
+        )
         log(f"provider {provider['name']} key_len={len(provider['api_key'])}")
-        for model in provider["models"]:
+        for model in provider.get("models", []):
+            if time.monotonic() > deadline:
+                raise RuntimeError("deadline 90s terlampaui, fallback ke lokal")
             try:
                 log(f"generate script with {provider['name']}/{model}")
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
-                    temperature=0.8,
+                    temperature=0.6,
                 )
                 content = resp.choices[0].message.content.strip()
                 content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
                 data = json.loads(content)
-                if not data.get("scenes"):
-                    raise ValueError("scenes kosong")
+                if not _quality_ok(data):
+                    raise ValueError("kualitas output tidak memenuhi (scene/text)")
                 return data
             except Exception as e:  # noqa: BLE001
                 last_err = e
-                body = ""
                 resp_obj = getattr(e, "response", None)
-                if resp_obj is not None:
-                    try:
-                        body = resp_obj.text
-                    except Exception:  # noqa: BLE001
-                        body = ""
-                log(f"model {provider['name']}/{model} gagal: {e} | body={body[:300]}")
+                body = resp_obj.text if resp_obj is not None else ""
+                status = getattr(resp_obj, "status_code", None) or getattr(e, "status_code", None)
+                log(f"model {provider['name']}/{model} gagal: {e} | body={body[:200]}")
+
+                retryable = (status == 429 and not _is_daily_limit(e, body)) or (
+                    isinstance(status, int) and 500 <= status < 600
+                )
+                if retryable:
+                    wait = _retry_after(e) or (2.0 if status == 429 else 1.0)
+                    if time.monotonic() + wait <= deadline:
+                        log(f"retry {provider['name']}/{model} setelah {wait}s")
+                        time.sleep(wait)
+                        try:
+                            resp = client.chat.completions.create(
+                                model=model,
+                                messages=[{"role": "user", "content": prompt}],
+                                temperature=0.6,
+                            )
+                            content = resp.choices[0].message.content.strip()
+                            content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                            data = json.loads(content)
+                            if _quality_ok(data):
+                                return data
+                        except Exception as e2:  # noqa: BLE001
+                            last_err = e2
+                            log(f"retry gagal: {e2}")
+                if _is_daily_limit(e, body):
+                    log(f"kuota harian {provider['name']} habis, lewati provider")
+                    break
     raise RuntimeError(f"Semua provider/model gagal: {last_err}")
 
 
