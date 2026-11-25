@@ -232,7 +232,14 @@ def _cloudflare_image(prompt: str, path: Path) -> bool:
         log("image (cloudflare flux) -> " + path.name)
         return True
     except Exception as e:  # noqa: BLE001
-        log(f"cloudflare image gagal ({e})")
+        body = ""
+        resp_obj = getattr(e, "response", None)
+        if resp_obj is not None:
+            try:
+                body = resp_obj.text
+            except Exception:  # noqa: BLE001
+                body = ""
+        log(f"cloudflare image gagal ({e}) body={body[:300]}")
         return False
 
 
