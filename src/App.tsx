@@ -259,7 +259,6 @@ const input: React.CSSProperties = { padding: 8, width: '100%' }
 const btn: React.CSSProperties = { padding: '10px 20px', cursor: 'pointer' }
 
 function TwoFactorSetup() {
-  const { data: session } = authClient.useSession()
   const [open, setOpen] = useState(false)
   const [password, setPassword] = useState('')
   const [secret, setSecret] = useState<string | null>(null)
@@ -276,15 +275,14 @@ function TwoFactorSetup() {
       const res = await authClient.twoFactor.enable({ password })
       setRaw(JSON.stringify(res))
       if (res.error) throw res.error
-      const sec = (res.data as any)?.secret || null
-      setSecret(sec)
-      const email = session?.user?.email || 'user'
-      if (sec) {
-        const otpauth = `otpauth://totp/PabrikKontenAI:${email}?secret=${sec}&issuer=PabrikKontenAI`
-        const dataUrl = await QRCode.toDataURL(otpauth)
+      const data = res.data as any
+      const uri = data?.totpURI || data?.qrCode || null
+      setSecret(uri)
+      if (uri && !uri.startsWith('data:image')) {
+        const dataUrl = await QRCode.toDataURL(uri)
         setQr(dataUrl)
       } else {
-        setQr((res.data as any)?.qrCode || null)
+        setQr(uri)
       }
     } catch (e: any) { setError(e?.message || 'Gagal enable') }
     finally { setBusy(false) }
