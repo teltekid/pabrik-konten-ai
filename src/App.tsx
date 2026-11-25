@@ -196,11 +196,15 @@ function AuthForm() {
       } else {
         const res = await authClient.signIn.email({ email, password })
         setRaw(JSON.stringify(res))
-        const needs2fa =
-          Boolean((res.data as any)?.twoFactorRedirect) ||
-          /two.?factor|2fa|totp/i.test(String(res.error?.message || ''))
-        if (res.error && !needs2fa) throw res.error
-        if (needs2fa) {
+        if (res.error) {
+          const needs2fa = /two.?factor|2fa|totp/i.test(String(res.error.message || ''))
+          if (!needs2fa) throw res.error
+          setTwoFactor(true)
+          return
+        }
+        // Jika tidak ada session setelah sign-in -> butuh 2FA
+        const sess = await authClient.getSession()
+        if (!sess.data) {
           setTwoFactor(true)
           return
         }
