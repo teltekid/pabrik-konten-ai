@@ -1,0 +1,7 @@
+﻿[
+  {"name":"gemini","base_url":"https://generativelanguage.googleapis.com/v1beta/openai/","api_key_env":"GEMINI_API_KEY","models":["gemini-flash-latest","gemini-flash-lite-latest"]},
+  {"name":"groq","base_url":"https://api.groq.com/openai/v1","api_key_env":"GROQ_API_KEY","models":["openai/gpt-oss-20b"]},
+  {"name":"cloudflare","base_url":"","api_key_env":"CLOUDFLARE_API_TOKEN","models":["@cf/meta/llama-3.3-70b-instruct-fp8-fast","@cf/meta/llama-3.1-8b-instruct"]},
+  {"name":"sambanova","base_url":"https://api.sambanova.ai/v1","api_key_env":"SAMBANOVA_API_KEY","models":["Meta-Llama-3.3-70B-Instruct","Meta-Llama-3.1-8B-Instruct"]},
+  {"name":"openrouter","base_url":"https://openrouter.ai/api/v1","api_key_env":"OPENROUTER_API_KEY","models":["google/gemma-4-31b-it:free","baidu/ernie-5.5-flash-preview:free","inclusionai/ling-3.2-flash:free","nvidia/nemotron-3.5-lightning:free"]}
+]

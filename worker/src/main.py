@@ -27,6 +27,9 @@ GDRIVE_SERVICE_ACCOUNT_JSON = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
 GDRIVE_CLIENT_ID = os.environ.get("GDRIVE_CLIENT_ID", "")
 GDRIVE_CLIENT_SECRET = os.environ.get("GDRIVE_CLIENT_SECRET", "")
 GDRIVE_REFRESH_TOKEN = os.environ.get("GDRIVE_REFRESH_TOKEN", "")
+YOUTUBE_CLIENT_ID = os.environ.get("YOUTUBE_CLIENT_ID", "")
+YOUTUBE_CLIENT_SECRET = os.environ.get("YOUTUBE_CLIENT_SECRET", "")
+YOUTUBE_REFRESH_TOKEN = os.environ.get("YOUTUBE_REFRESH_TOKEN", "")
 
 TARGET_JOB_ID = os.environ.get("TARGET_JOB_ID", "").strip()
 
@@ -82,18 +85,43 @@ _DEFAULT_PROVIDERS = [
 ]
 
 _PROVIDERS_RAW = os.environ.get("LLM_PROVIDERS_JSON", "").strip()
+_LOADED = False
 if _PROVIDERS_RAW:
     try:
-        PROVIDERS = json.loads(_PROVIDERS_RAW)
-        # inject api_key dari env bila kosong
-        for p in PROVIDERS:
-            if not p.get("api_key"):
-                p["api_key"] = os.environ.get(
-                    p.get("api_key_env", ""), ""
-                )
+        _candidate = json.loads(_PROVIDERS_RAW)
+        _LOADED = True
     except json.JSONDecodeError:
-        log("LLM_PROVIDERS_JSON invalid, fallback ke default")
-        PROVIDERS = _DEFAULT_PROVIDERS
+        log("LLM_PROVIDERS_JSON invalid, fallback ke config/file/default")
+        _candidate = None
+else:
+    _candidate = None
+
+if not _LOADED:
+    # coba file config
+    _cfg_path = os.environ.get("LLM_PROVIDERS_FILE", "worker/config/models.json")
+    try:
+        with open(_cfg_path, encoding="utf-8") as f:
+            _candidate = json.load(f)
+            _LOADED = True
+    except (OSError, json.JSONDecodeError):
+        _candidate = None
+
+if _LOADED and isinstance(_candidate, list):
+    PROVIDERS = []
+    for p in _candidate:
+        name = p.get("name", "")
+        base = p.get("base_url", "")
+        if name == "cloudflare" and not base and CLOUDFLARE_ACCOUNT_ID:
+            base = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1"
+        key = p.get("api_key") or os.environ.get(p.get("api_key_env", ""), "")
+        PROVIDERS.append(
+            {
+                "name": name,
+                "base_url": base,
+                "api_key": key,
+                "models": p.get("models", []),
+            }
+        )
 else:
     PROVIDERS = _DEFAULT_PROVIDERS
 
@@ -109,6 +137,8 @@ def update_job(job_id: str, **fields) -> None:
 
 
 def fetch_job():
+    # Reclaim job yang nyangkut di 'processing' lebih dari 30 menit
+    reclaim_stale_jobs()
     if TARGET_JOB_ID:
         res = supabase.table("video_jobs").select("*").eq("id", TARGET_JOB_ID).limit(1).execute()
         return res.data[0] if res.data else None
@@ -121,6 +151,18 @@ def fetch_job():
         .execute()
     )
     return res.data[0] if res.data else None
+
+
+def reclaim_stale_jobs() -> None:
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+        supabase.table("video_jobs").update(
+            {"status": "pending", "error_message": "reclaimed: stale processing"}
+        ).eq("status", "processing").lt("updated_at", cutoff).execute()
+    except Exception as e:  # noqa: BLE001
+        log(f"reclaim gagal (non-fatal): {e}")
 
 
 def claim_job(job_id: str) -> bool:
@@ -165,6 +207,8 @@ def _quality_ok(data: dict) -> bool:
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not (4 <= len(scenes) <= 8):
         return False
+    texts = []
+    total_len = 0
     for s in scenes:
         if not isinstance(s, dict):
             return False
@@ -174,6 +218,14 @@ def _quality_ok(data: dict) -> bool:
             return False
         if not isinstance(ip, str) or len(ip.strip()) < 5:
             return False
+        texts.append(t.strip().lower())
+        total_len += len(t.strip())
+    # hindari duplikasi scene
+    if len(set(texts)) < len(texts):
+        return False
+    # kualitas minimal: total panjang naskah
+    if total_len < 120:
+        return False
     return True
 
 
@@ -474,6 +526,45 @@ def upload_gdrive(out_path: Path) -> str:
     return link
 
 
+def upload_youtube(out_path: Path) -> str:
+    if not (YOUTUBE_REFRESH_TOKEN and YOUTUBE_CLIENT_ID and YOUTUBE_CLIENT_SECRET):
+        log("youtube tidak dikonfigurasi (butuh OAuth)")
+        return ""
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaFileUpload
+
+    creds = Credentials(
+        token=None,
+        refresh_token=YOUTUBE_REFRESH_TOKEN,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=YOUTUBE_CLIENT_ID,
+        client_secret=YOUTUBE_CLIENT_SECRET,
+        scopes=["https://www.googleapis.com/auth/youtube.upload"],
+    )
+    service = build("youtube", "v3", credentials=creds)
+    body = {
+        "snippet": {
+            "title": out_path.stem,
+            "description": "Generated by Pabrik Konten AI",
+            "tags": ["shorts", "ai"],
+            "categoryId": "22",
+        },
+        "status": {"privacyStatus": "unlisted"},
+    }
+    media = MediaFileUpload(str(out_path), mimetype="video/mp4", resumable=True, chunksize=1024 * 1024)
+    req = service.videos().insert(part="snippet,status", body=body, media_body=media)
+    resp = None
+    while resp is None:
+        status, resp = req.next_chunk()
+        if status:
+            log(f"youtube upload {int(status.progress() * 100)}%")
+    vid = resp.get("id")
+    link = f"https://youtu.be/{vid}" if vid else "youtube"
+    log(f"uploaded ke YouTube: {link}")
+    return link
+
+
 def main() -> int:
     job = fetch_job()
     if not job:
@@ -507,7 +598,9 @@ def main() -> int:
                 if link:
                     links["gdrive"] = link
             if dest.get("youtube"):
-                links["youtube"] = "stub (fase 2)"
+                link = upload_youtube(out_path)
+                if link:
+                    links["youtube"] = link
 
         update_job(job_id, status="completed", output_links=links, error_message=None)
         log(f"job {job_id} completed")
