@@ -360,9 +360,9 @@ def main() -> int:
                 if k:
                     links[k] = "ok"
             if dest.get("gdrive"):
-                k = upload_gdrive(out_path)
-                if k:
-                    links[k] = "ok"
+                link = upload_gdrive(out_path)
+                if link:
+                    links["gdrive"] = link
             if dest.get("youtube"):
                 links["youtube"] = "stub (fase 2)"
 
