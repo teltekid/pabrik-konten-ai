@@ -129,7 +129,7 @@ def generate_script(topic: str, language: str) -> dict:
         if not provider["api_key"] or not provider["base_url"]:
             log(f"provider {provider['name']} dilewati (api_key/base_url kosong)")
             continue
-        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"], timeout=120)
+        client = OpenAI(base_url=provider["base_url"], api_key=provider["api_key"], timeout=45, max_retries=0)
         log(f"provider {provider['name']} key_len={len(provider['api_key'])}")
         for model in provider["models"]:
             try:
@@ -159,10 +159,12 @@ def generate_script(topic: str, language: str) -> dict:
 
 
 async def _tts_scene(text: str, path: Path, voice: str) -> None:
+    import asyncio
+
     import edge_tts
 
     communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(str(path))
+    await asyncio.wait_for(communicate.save(str(path)), timeout=60)
 
 
 def generate_tts(scenes: list, voice: str, workdir: Path) -> list:
@@ -211,17 +213,42 @@ def make_placeholder(prompt: str, path: Path) -> None:
     log(f"placeholder -> {path.name}")
 
 
+def _cloudflare_image(prompt: str, path: Path) -> bool:
+    if not (CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN):
+        return False
+    url = f"https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell"
+    try:
+        r = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}"},
+            json={"prompt": prompt, "width": WIDTH, "height": HEIGHT},
+            timeout=60,
+        )
+        r.raise_for_status()
+        path.write_bytes(r.content)
+        log("image (cloudflare flux) -> " + path.name)
+        return True
+    except Exception as e:  # noqa: BLE001
+        log(f"cloudflare image gagal ({e})")
+        return False
+
+
 def download_image(prompt: str, path: Path) -> None:
     encoded = urllib.parse.quote(prompt)
     url = f"https://image.pollinations.ai/prompt/{encoded}?width={WIDTH}&height={HEIGHT}&nologo=true"
     try:
-        r = requests.get(url, timeout=120)
+        r = requests.get(url, timeout=20)
         r.raise_for_status()
         path.write_bytes(r.content)
         log(f"image -> {path.name}")
+        return
     except Exception as e:  # noqa: BLE001
-        log(f"pollinations gagal ({e}); pakai placeholder lokal")
-        make_placeholder(prompt, path)
+        log(f"pollinations gagal ({e})")
+
+    if _cloudflare_image(prompt, path):
+        return
+
+    make_placeholder(prompt, path)
 
 
 def run(cmd: list) -> None:
