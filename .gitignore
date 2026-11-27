@@ -20,3 +20,10 @@ __pycache__/
 kilo.json
 .mcp.json
 .cursor/mcp.json
+# Folder agent/tooling (impeccable, cursor, contoh) — jangan di-push
+.cursor/
+.agents/
+.claude/
+.impeccable/
+contohfile/
+.env.example
