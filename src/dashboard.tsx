@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client'
 import './index.css'
 import { DashboardPage } from './pages/Dashboard'
 import { authClient } from './lib/auth'
+import { AuthForm } from './App'
+import { ToastProvider } from './components/ui/toast'
+import { WorkspaceProvider } from './features/workspace/context'
 
 function Guard() {
   const { data: session, isPending } = authClient.useSession()
@@ -12,11 +15,16 @@ function Guard() {
   }
 
   if (!session) {
-    window.location.replace('/')
-    return null
+    return <AuthForm />
   }
 
-  return <DashboardPage />
+  return (
+    <ToastProvider>
+      <WorkspaceProvider>
+        <DashboardPage />
+      </WorkspaceProvider>
+    </ToastProvider>
+  )
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

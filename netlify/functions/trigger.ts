@@ -16,7 +16,7 @@ export async function handler(req: any, context: any) {
 
   try {
     const body = JSON.parse(req.body || '{}')
-    const { topic, language = 'id-ID', voice_name = 'id-ID-ArdiNeural', destinations } = body
+    const { topic, language = 'id-ID', voice_name = 'id-ID-ArdiNeural', destinations, strategy } = body
 
     if (!topic) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Topic is required' }) }
@@ -28,6 +28,7 @@ export async function handler(req: any, context: any) {
         topic,
         language,
         voice_name,
+        strategy: strategy || null,
         destinations: destinations || { telegram: true, gdrive: false, youtube: false },
       })
       .select()

@@ -22,7 +22,7 @@ export default async (req: Request): Promise<Response> => {
   } catch (e: any) {
     console.error('[auth] error:', e)
     return new Response(
-      JSON.stringify({ error: e?.message || String(e), stack: e?.stack }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } },
     )
   }

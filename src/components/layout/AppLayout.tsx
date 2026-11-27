@@ -1,7 +1,8 @@
-import { Menu, Search, Bell } from 'lucide-react'
+import { Menu, Bell } from 'lucide-react'
 import { Button } from '../ui/button'
-import { Input } from '../ui/input'
 import { authClient } from '../../lib/auth'
+import { useWorkspace } from '../../features/workspace/context'
+import { WorkspaceControls } from '../../features/workspace/WorkspaceControls'
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarItem, useSidebar } from '../ui/sidebar'
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ export interface NavItem {
   href: string
   icon: React.ReactNode
   active?: boolean
+  onClick?: () => void
 }
 
 interface AppLayoutProps {
@@ -27,45 +29,58 @@ interface AppLayoutProps {
 
 function Topbar({ title }: { title: string }) {
   const { setMobileOpen } = useSidebar()
+  const { workspaces, selectedWorkspaceId, setSelectedWorkspaceId } = useWorkspace()
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur md:px-6">
       <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen(true)}>
         <Menu className="h-5 w-5" />
       </Button>
       <h1 className="truncate font-serif text-lg font-semibold">{title}</h1>
-      <div className="relative ml-auto hidden w-64 md:block">
-        <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Cari..." className="pl-8" />
+      <div className="ml-auto flex items-center gap-2">
+        <select
+          value={selectedWorkspaceId}
+          onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+          className="h-9 w-40 rounded-md border border-input bg-surface px-2 text-sm shadow-soft md:w-56"
+          title="Workspace aktif"
+        >
+          {workspaces.length === 0 && <option value="">Belum ada workspace</option>}
+          {workspaces.map((ws) => (
+            <option key={ws.id} value={ws.id}>{ws.name}</option>
+          ))}
+        </select>
+        <WorkspaceControls />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Tidak ada notifikasi</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-sm font-medium text-accent transition-[background-color,transform] duration-150 hover:bg-accent/20 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              PA
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Profil</DropdownMenuItem>
+            <DropdownMenuItem>Pengaturan</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                await authClient.signOut()
+                window.location.reload()
+              }}
+            >
+              Keluar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>Tidak ada notifikasi</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="ml-1 flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-sm font-medium text-accent">
-            PA
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem>Profil</DropdownMenuItem>
-          <DropdownMenuItem>Pengaturan</DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={async () => {
-              await authClient.signOut()
-              window.location.href = '/'
-            }}
-          >
-            Keluar
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </header>
   )
 }
@@ -83,7 +98,16 @@ export function AppLayout({ title, nav, logo, children }: AppLayoutProps) {
           </SidebarHeader>
           <SidebarContent>
             {nav.map((item) => (
-              <SidebarItem key={item.href} href={item.href} active={item.active} icon={item.icon}>
+              <SidebarItem
+                key={item.href}
+                href={item.href}
+                active={item.active}
+                icon={item.icon}
+                onClick={item.onClick ? (e: React.MouseEvent) => {
+                  e.preventDefault()
+                  item.onClick?.()
+                } : undefined}
+              >
                 {item.label}
               </SidebarItem>
             ))}

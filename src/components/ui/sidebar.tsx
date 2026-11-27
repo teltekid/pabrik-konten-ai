@@ -73,7 +73,7 @@ function SidebarItem({ active, icon, className, children, ...props }: SidebarIte
   return (
     <a
       className={cn(
-        'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+        'flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 active:scale-[0.98]',
         active
           ? 'bg-accent/10 text-accent'
           : 'text-muted-foreground hover:bg-muted hover:text-foreground',

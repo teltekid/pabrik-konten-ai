@@ -23,7 +23,7 @@ const DESTINATIONS = [
   { key: 'youtube', label: 'YouTube (stub)' },
 ]
 
-function Dashboard() {
+export function Dashboard() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
   const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
   const [topic, setTopic] = useState('')
@@ -175,7 +175,7 @@ function statusColor(s: JobStatus): string {
   }
 }
 
-function AuthForm() {
+export function AuthForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -398,12 +398,6 @@ function TwoFactorSetup() {
 export default function App() {
   const { data: session, isPending } = authClient.useSession()
 
-  useEffect(() => {
-    if (session) {
-      window.location.replace('/dashboard.html')
-    }
-  }, [session])
-
   if (isPending) {
     return <div style={{ textAlign: 'center', marginTop: 80, fontFamily: 'system-ui' }}>Memuat...</div>
   }
@@ -415,7 +409,7 @@ export default function App() {
   return (
     <div>
       <div style={{ textAlign: 'right', padding: 8, fontFamily: 'system-ui' }}>
-        {session.user.email} ·{' '}
+        {session.user.email} Â·{' '}
         <a href="#" onClick={(e) => { e.preventDefault(); authClient.signOut() }}>Keluar</a>
       </div>
       <TwoFactorSetup />

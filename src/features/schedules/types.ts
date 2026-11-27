@@ -1,0 +1,1 @@
+export interface Schedule { id: string; account_id: string; day_of_week: number; time_slot: string; created_at: string }

@@ -1,11 +1,15 @@
 [build]
-  command = "npm run build"
+  command = "npm run build && node scripts/apply-schema.mjs --soft"
   publish = "dist"
   functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["pg"]
+
+# Auto-post tiap 15 menit (post yang sudah di-confirm & waktunya tiba)
+[functions."auto-post"]
+  schedule = "*/15 * * * *"
 
 # SPA fallback: semua route ke index.html
 [[redirects]]

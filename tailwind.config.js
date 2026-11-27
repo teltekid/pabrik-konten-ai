@@ -36,7 +36,10 @@ export default {
           foreground: 'hsl(var(--accent-foreground))',
         },
         success: 'hsl(var(--success))',
-        danger: 'hsl(var(--danger))',
+        danger: {
+          DEFAULT: 'hsl(var(--danger))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',

@@ -229,12 +229,19 @@ def _quality_ok(data: dict) -> bool:
     return True
 
 
-def generate_script(topic: str, language: str) -> dict:
+def generate_script(topic: str, language: str, strategy: str = "") -> dict:
+    strategy_line = ""
+    if strategy and strategy.strip():
+        strategy_line = (
+            "Strategi konten (WAJIB dipatuhi, memengaruhi naskah dan image_prompt tiap scene): "
+            f"{strategy.strip()}\n"
+        )
     prompt = (
         "Buat naskah video pendek vertikal (9:16) berdasarkan topik berikut. "
         "Jawab HANYA JSON valid dengan struktur: "
         '{"title": string, "scenes": [{"text": string, "image_prompt": string}]}. '
-        f"Minimal 4 scene, maksimal 8. Bahasa: {language}. Topik: {topic}"
+        f"Minimal 4 scene, maksimal 8. Bahasa: {language}. Topik: {topic}\n"
+        f"{strategy_line}"
     )
     last_err = None
     deadline = time.monotonic() + 90  # total budget per tugas
@@ -578,7 +585,7 @@ def main() -> int:
 
     log(f"proses job {job_id}: {job['topic']}")
     try:
-        script = generate_script(job["topic"], job.get("language", "id-ID"))
+        script = generate_script(job["topic"], job.get("language", "id-ID"), job.get("strategy") or "")
         scenes = script["scenes"]
 
         with tempfile.TemporaryDirectory() as tmp:

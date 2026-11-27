@@ -14,3 +14,9 @@ __pycache__/
 .kilo/agent-manager.json
 # Local Netlify folder
 .netlify
+# Local tools (extension meta.ai, worker lokal) — jangan di-push
+.local/
+# Config tooling berisi API key — jangan di-push
+kilo.json
+.mcp.json
+.cursor/mcp.json
